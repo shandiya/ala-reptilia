@@ -1,0 +1,39 @@
+---
+title: "reptilia"
+author: "Shandiya Balasubramaniam"
+date: "03/12/2021"
+output: 
+  html_document:
+    code_folding: "hide"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libraries, message = FALSE, warning = FALSE}
+
+library(here)
+library(galah)
+library(dplyr)
+
+```
+
+
+```{r get-data, message = FALSE}
+
+# email in .Renviron
+galah_config(email = Sys.getenv('EMAIL'), atlas = "Australia")
+
+# download data
+reptilia <- ala_occurrences(
+  taxa = select_taxa("Reptilia"),
+  filters = select_filters(stateProvince = "Australian Capital Territory"),
+  columns = select_columns(group = "basic", "basisOfRecord", "cl22", "cl10902"))
+
+# save to avoid repeated downloads
+saveRDS(reptilia, here("data", "reptilia"))
+
+```
+
