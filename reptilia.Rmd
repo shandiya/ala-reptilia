@@ -262,10 +262,10 @@ Reptile occurrence counts by taxonomic family between `r year(min(reptilia_tidy$
 
 reptilia_tidy %>%
   filter(!is.na(eventDate)) %>% 
-  group_by(eventDate) %>%
+  group_by(year(eventDate)) %>%
   summarise(count = n(), family = family) %>%
   ggplot() +
-  geom_line(aes(x = eventDate, y = count), 
+  geom_line(aes(x = `year(eventDate)`, y = count), 
             color = "#41507B") +
   facet_wrap(~family) +
   labs(x = "Date",
@@ -278,11 +278,21 @@ reptilia_tidy %>%
 
 Reptile occurrence counts based on input source (data resource name) between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT 
 
-```{r}
+```{r data-resource, message = FALSE, fig.fullwidth = TRUE}
+
+reptilia_tidy %>%
+  filter(!is.na(eventDate)) %>% 
+  group_by(year(eventDate)) %>%
+  summarise(count = n(), source = dataResourceName) %>%
+  ggplot() +
+  geom_line(aes(x = `year(eventDate)`, y = count), 
+            color = "#41507B") +
+  facet_wrap(~source) +
+  labs(x = "Date",
+       y = "") +
+  theme_ipsum()
 
 ```
-
-
 
 ### Seasonal differences in counts  
 
