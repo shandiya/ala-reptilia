@@ -18,12 +18,15 @@ library(galah)
 library(skimr)
 library(dplyr)
 library(lubridate)
+library(tidyr)
 library(stringr)
 library(ggplot2)
+library(ggradar)
 library(leaflet)
 library(leaflet.extras)
 library(reactable)
 library(scico)
+library(hrbrthemes)
 
 ```
 
@@ -68,22 +71,31 @@ reptilia_tidy <- reptilia %>%
   rename(state = cl22, 
          forestType = cl10902) %>% 
   mutate(forestType = na_if(forestType, ""),
+         family = na_if(family, ""),
          basisOfRecord = tolower(basisOfRecord),
          basisOfRecord = str_replace(basisOfRecord, "_", " "),
          eventDate = as_datetime(eventDate, tz = "Australia/Sydney", format = NULL),
          eventDate = as_date(eventDate, tz = NULL),
-         month = month(eventDate))
+         month = month(eventDate, label = TRUE, abbr = TRUE))
 
 ```
 
-### Data exploration
+## Exploratory data analysis {.tabset .tabset-fade .tabset-pills}
 
-```{r skim}
+### Summary statistics
+
+Summary statistics for fields in the dataset of reptile occurrences in the ACT
+
+```{r skim, fig.fullwidth = TRUE}
 
 skim(reptilia_tidy)
 
 ```
-**Figure 1** Summary statistics for fields in the dataset of reptile occurrences in the ACT
+
+
+### Occurrence map
+
+Locations of reptiles in the ACT based on occurrence records of reptiles from the ALA. Interactive layers in the top right corner allow records to be differentiated based on the type of record (ALA id: basisOfRecord), forest type (ALA id: cl10902), and taxonomic family (ALA id: family) associated with each record.
 
 ```{r leaflet, echo = FALSE, layout = "l-page"}
 
@@ -97,6 +109,11 @@ record_pal <- colorFactor(
 forest_pal <- colorFactor(
   scico(11, palette = 'romaO'),
   reptilia_tidy$forestType
+)
+
+family_pal <- colorFactor(
+  scico(12, palette = 'batlow'),
+  reptilia_tidy$family
 )
 
 leaflet(reptilia_tidy) %>% 
@@ -155,19 +172,40 @@ leaflet(reptilia_tidy) %>%
     opacity = 1,
     group = "Forest type"
   ) %>% 
+  # colours points by family
+  addCircleMarkers(
+    lng = ~decimalLongitude,
+    lat = ~decimalLatitude,
+    radius = 3,
+    stroke = FALSE,
+    color = ~family_pal(family),
+    fillOpacity = 0.5,
+    group = "Family",
+    popup = paste0(reptilia_tidy$scientificName, "<br/>", reptilia_tidy$family)
+  ) %>%
+  # legend for family
+  addLegend(
+    "bottomright",
+    pal = family_pal,
+    values = ~family,
+    title = "Family",
+    opacity = 1,
+    group = "Family"
+  ) %>% 
   addLayersControl(
     baseGroups = c("Positron", "Toner", "Terrain"),
-    overlayGroups = c("All records", "Record basis", "Forest type"), 
+    overlayGroups = c("All records", "Record basis", "Forest type", "Family"), 
     options = layersControlOptions(collapsed = FALSE)) %>% 
-  hideGroup(c("Record basis", "Forest type")) %>% 
+  hideGroup(c("Record basis", "Forest type", "Family")) %>% 
   addFullscreenControl()
 
 ```
-**Figure2** Locations for occurrence records of reptiles in the ACT. Interactive layers in the top right corner allow records to be differentiated based on the type of record (ALA id: basisOfRecord) and forest type (ALA id: cl10902) associated with each record.  
+  
 
+### Occurrence records
 
-**Table 1** Occurrence records for reptiles in the ACT. Columns may be sorted by clicking on column names, or filtered using the search bars under each column header. A global search bar in the top right corner enables searching the whole table.  
-```{r table-all }
+Occurrence records for reptiles in the ACT. Columns may be sorted by clicking on column names, or filtered using the search bars under each column header. A global search bar in the top right corner enables searching the whole table.  
+```{r table-all, fig.fullwidth = TRUE}
 
 # remove cols not of interest in a table
 reptilia_subset <- reptilia_tidy %>% 
@@ -188,12 +226,100 @@ reactable(
   showSortable = TRUE,
   filterable = TRUE,
   searchable = TRUE,
-  showPageInfo = FALSE,
   striped = TRUE
 )
 ```
 
+## {-}
+
+
+## Occurrence records over time {.tabset .tabset-fade .tabset-pills}
+
+### All records   
+
+Reptile occurrence counts between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT
+
+```{r all-counts, message = FALSE, fig.fullwidth = TRUE}
+
+reptilia_tidy %>%
+  filter(!is.na(eventDate)) %>% 
+  group_by(eventDate) %>%
+  summarise(count = n()) %>%
+  ggplot() +
+  geom_line(aes(x = eventDate, y = count), 
+            color = "#41507B") +
+  labs(x = "",
+       y = "Count") +
+  theme_ipsum()
+
+```
+
+### Records by family   
+
+Reptile occurrence counts by taxonomic family between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT 
+
+```{r facet-counts, message = FALSE, fig.fullwidth = TRUE}
+
+reptilia_tidy %>%
+  filter(!is.na(eventDate)) %>% 
+  group_by(eventDate) %>%
+  summarise(count = n(), family = family) %>%
+  ggplot() +
+  geom_line(aes(x = eventDate, y = count), 
+            color = "#41507B") +
+  facet_wrap(~family) +
+  labs(x = "Date",
+       y = "") +
+  theme_ipsum()
+
+```
+
+### Seasonal count differences
+
+```{r}
+
+reptilia_wider <- reptilia_tidy %>%
+  filter(!is.na(month)) %>%
+  group_by(family, month) %>%
+  summarise(occ = n()) %>% 
+  pivot_wider(names_from = month, values_from = occ) %>% 
+  mutate_if(is.numeric, replace_na, 0) %>% 
+  relocate(Jul, .before = Aug) %>% 
+  mutate(total = sum(c_across(Jan:Dec)),
+         max = max(c_across(Jan:Dec))) %>% 
+  filter(total > 100)
+
+max_fam <- reptilia_wider$max
+  
+reptilia_radar <- reptilia_wider %>% 
+  select(family:Dec)
+
+
+ggradar(
+  reptilia_radar[1, ],
+  grid.mid = (max_fam[1]) / 2,
+  grid.max = max_fam[1],
+  values.radar = NA,
+  group.line.width = 1,
+  group.point.size = 0,
+  group.colours = "navy",
+  base.size = 12,
+  background.circle.colour = "white",
+  gridline.mid.colour = "lightgrey",
+  plot.title = reptilia_radar$family[1]
+ )
+
+
+```
+
+
+  
+## {-}
 
 ### Citation  
 `r citation_text`
+
+```{r session-info}
+sessionInfo()
+```
 
