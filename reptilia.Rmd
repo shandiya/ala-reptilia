@@ -1,7 +1,6 @@
 ---
-title: "reptilia"
+title: "Diversity of Reptiles in the ACT"
 author: "Shandiya Balasubramaniam"
-date: "03/12/2021"
 output: 
   html_document:
     code_folding: "hide"
@@ -17,6 +16,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(here)
 library(galah)
 library(dplyr)
+library(stringr)
+library(ggplot2)
+library(leaflet)
+library(leaflet.extras)
+library(viridis)
 
 ```
 
@@ -26,14 +30,124 @@ library(dplyr)
 # email in .Renviron
 galah_config(email = Sys.getenv('EMAIL'), atlas = "Australia")
 
+my_col <- select_columns("decimalLatitude",
+                         "decimalLongitude",
+                         "scientificName", 
+                         "genus",
+                         "family",
+                         "order",
+                         "dataResourceName", 
+                         "basisOfRecord", 
+                         "cl22",
+                         "cl10902")
 # download data
 reptilia <- ala_occurrences(
   taxa = select_taxa("Reptilia"),
   filters = select_filters(stateProvince = "Australian Capital Territory"),
-  columns = select_columns(group = "basic", "basisOfRecord", "cl22", "cl10902"))
+  columns = my_col,
+  mint_doi = TRUE)
+
+citation_text <- ala_citation(reptilia)
 
 # save to avoid repeated downloads
 saveRDS(reptilia, here("data", "reptilia"))
 
 ```
+
+
+```{r tidying}
+
+reptilia <- readRDS(here("data", "reptilia"))
+
+reptilia_tidy <- reptilia %>% 
+  filter(cl22 == "Australian Capital Territory") %>% 
+  rename(state = cl22, 
+         forestType = cl10902) %>% 
+  mutate(forestType = na_if(forestType, ""),
+         basisOfRecord = tolower(basisOfRecord),
+         basisOfRecord = str_replace(basisOfRecord, "_", " "))
+
+```
+
+```{r leaflet, echo = FALSE, layout = "l-page"}
+
+# colour palettes
+record_pal <- colorFactor(
+  c("#3C0D03", "#8C1C06", "#E77424","#ED9B49", "#F6C34E"),
+  reptilia_tidy$basisOfRecord
+)
+
+
+forest_pal <- colorFactor(
+  colorRampPalette(c("#012600", "#B6BFAC"))(11),
+  reptilia_tidy$forestType
+)
+
+leaflet(reptilia_tidy) %>% 
+  # different basemaps 
+  addProviderTiles(providers$CartoDB.Positron, group = "Positron") %>% 
+  addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
+  addProviderTiles(providers$Stamen.Terrain, group = "Terrain") %>% 
+  # all records
+  addCircleMarkers(
+    lng = ~decimalLongitude,
+    lat = ~decimalLatitude,
+    radius = 3,
+    stroke = FALSE,
+    color = "#41507B",
+    fillOpacity = 0.5,
+    group = "All records",
+    popup = paste0(reptilia_tidy$scientificName)
+  ) %>% 
+  # colours points by basis of record
+  addCircleMarkers(
+    lng = ~decimalLongitude,
+    lat = ~decimalLatitude,
+    radius = 3,
+    stroke = FALSE,
+    color = ~record_pal(basisOfRecord),
+    fillOpacity = 0.5,
+    group = "Record basis",
+    popup = paste0(reptilia_tidy$scientificName, "<br/>", reptilia_tidy$basisOfRecord)
+  ) %>%
+  # legend for basis of record
+  addLegend(
+    "bottomright",
+    pal = record_pal,
+    values = ~ basisOfRecord,
+    title = "Basis of Record",
+    opacity = 1,
+    group = "Record basis"
+  ) %>% 
+  # colours points by forest type
+  addCircleMarkers(
+    lng = ~decimalLongitude,
+    lat = ~decimalLatitude,
+    radius = 3,
+    stroke = FALSE, 
+    color = ~forest_pal(forestType),
+    fillOpacity = 0.5,
+    group = "Forest type",
+    popup = paste0(reptilia_tidy$scientificName, "<br/>", reptilia_tidy$forestType)
+  ) %>% 
+  # legend for forest type
+  addLegend(
+    "bottomright",
+    pal = forest_pal,
+    values = ~ forestType,
+    title = "Forest Type",
+    opacity = 1,
+    group = "Forest type"
+  ) %>% 
+  addLayersControl(
+    baseGroups = c("Positron", "Toner", "Terrain"),
+    overlayGroups = c("All records", "Record basis", "Forest type"), 
+    options = layersControlOptions(collapsed = FALSE)) %>% 
+  hideGroup(c("Record basis", "Forest type")) %>% 
+  addFullscreenControl()
+
+```
+
+#### Data  
+`r citation_text`
 
