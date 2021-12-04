@@ -21,7 +21,6 @@ library(lubridate)
 library(tidyr)
 library(stringr)
 library(ggplot2)
-library(ggradar)
 library(leaflet)
 library(leaflet.extras)
 library(reactable)
@@ -76,7 +75,7 @@ reptilia_tidy <- reptilia %>%
          basisOfRecord = str_replace(basisOfRecord, "_", " "),
          eventDate = as_datetime(eventDate, tz = "Australia/Sydney", format = NULL),
          eventDate = as_date(eventDate, tz = NULL),
-         month = month(eventDate, label = TRUE, abbr = TRUE))
+         month = month(eventDate))
 
 ```
 
@@ -205,6 +204,7 @@ leaflet(reptilia_tidy) %>%
 ### Occurrence records
 
 Occurrence records for reptiles in the ACT. Columns may be sorted by clicking on column names, or filtered using the search bars under each column header. A global search bar in the top right corner enables searching the whole table.  
+
 ```{r table-all, fig.fullwidth = TRUE}
 
 # remove cols not of interest in a table
@@ -274,51 +274,61 @@ reptilia_tidy %>%
 
 ```
 
-### Seasonal count differences
+### Records by data resource   
+
+Reptile occurrence counts based on input source (data resource name) between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT 
 
 ```{r}
-
-reptilia_wider <- reptilia_tidy %>%
-  filter(!is.na(month)) %>%
-  group_by(family, month) %>%
-  summarise(occ = n()) %>% 
-  pivot_wider(names_from = month, values_from = occ) %>% 
-  mutate_if(is.numeric, replace_na, 0) %>% 
-  relocate(Jul, .before = Aug) %>% 
-  mutate(total = sum(c_across(Jan:Dec)),
-         max = max(c_across(Jan:Dec))) %>% 
-  filter(total > 100)
-
-max_fam <- reptilia_wider$max
-  
-reptilia_radar <- reptilia_wider %>% 
-  select(family:Dec)
-
-
-ggradar(
-  reptilia_radar[1, ],
-  grid.mid = (max_fam[1]) / 2,
-  grid.max = max_fam[1],
-  values.radar = NA,
-  group.line.width = 1,
-  group.point.size = 0,
-  group.colours = "navy",
-  base.size = 12,
-  background.circle.colour = "white",
-  gridline.mid.colour = "lightgrey",
-  plot.title = reptilia_radar$family[1]
- )
-
 
 ```
 
 
-  
+
+### Seasonal differences in counts  
+
+Occurrence counts of individuals by family, across the different months of the year. Although the number of counts varies widely among families, the patterns across months are similar. NOTE: counts have not been transformed to account for differences in the number of species in each family.  
+
+```{r polar-plots, message = FALSE, echo = FALSE, fig.fullwidth = TRUE}
+
+# wrangling
+reptilia_polar <- reptilia_tidy %>%
+  filter(!is.na(month)) %>%                                # remove records w/o date
+  group_by(family, month) %>%
+  summarise(occ = n()) %>%                                 # counts by family and month
+  pivot_wider(names_from = month, values_from = occ) %>%   # for filtering out low counts by family
+  mutate_if(is.numeric, replace_na, 0) %>%                 # replace NAs with 0s so sum() works   
+  mutate(total_by_family = sum(c_across(1:12))) %>%
+  filter(total_by_family > 50) %>%                         # remove families with <50 occ total
+  mutate(`0` = `12`) %>%                                   # adds dummy month column for nicer plotting
+  select(-total_by_family) %>%
+  pivot_longer(!family, names_to = "month", values_to = "occ") %>%
+  mutate(month = as.numeric(month))                        # allows plotting as continuous variable
+
+# temp solution to enable free scales in polar plot
+cp <- coord_polar()
+cp$is_free <- function() TRUE
+
+# polar plot facetted by family
+ggplot(reptilia_polar) +
+  geom_line(aes(x = month, y = occ), 
+            colour = "#41507B", lwd = 1) +
+  scale_x_continuous(breaks = 1:12) + 
+  cp + 
+  facet_wrap(~family, scales = "free_y") +
+  theme_ipsum() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(), 
+        panel.grid.minor = element_blank())
+
+```
+
 ## {-}
 
 ### Citation  
 `r citation_text`
 
+
+### Session Info  
 ```{r session-info}
 sessionInfo()
 ```
