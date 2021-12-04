@@ -1,5 +1,5 @@
 ---
-title: "Diversity of Reptiles in the ACT"
+title: "Reptiles in the ACT: where and when are they seen?"
 author: "Shandiya Balasubramaniam"
 output: 
   html_document:
@@ -15,23 +15,27 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(here)
 library(galah)
+library(skimr)
 library(dplyr)
+library(lubridate)
 library(stringr)
 library(ggplot2)
 library(leaflet)
 library(leaflet.extras)
-library(viridis)
+library(reactable)
+library(scico)
 
 ```
 
 
-```{r get-data, message = FALSE}
+```{r get-data, include = FALSE, message = FALSE, echo = FALSE}
 
 # email in .Renviron
 galah_config(email = Sys.getenv('EMAIL'), atlas = "Australia")
 
 my_col <- select_columns("decimalLatitude",
                          "decimalLongitude",
+                         "eventDate",
                          "scientificName", 
                          "genus",
                          "family",
@@ -55,7 +59,7 @@ saveRDS(reptilia, here("data", "reptilia"))
 ```
 
 
-```{r tidying}
+```{r tidying, message = FALSE}
 
 reptilia <- readRDS(here("data", "reptilia"))
 
@@ -65,21 +69,33 @@ reptilia_tidy <- reptilia %>%
          forestType = cl10902) %>% 
   mutate(forestType = na_if(forestType, ""),
          basisOfRecord = tolower(basisOfRecord),
-         basisOfRecord = str_replace(basisOfRecord, "_", " "))
+         basisOfRecord = str_replace(basisOfRecord, "_", " "),
+         eventDate = as_datetime(eventDate, tz = "Australia/Sydney", format = NULL),
+         eventDate = as_date(eventDate, tz = NULL),
+         month = month(eventDate))
 
 ```
+
+### Data exploration
+
+```{r skim}
+
+skim(reptilia_tidy)
+
+```
+**Figure 1** Summary statistics for fields in the dataset of reptile occurrences in the ACT
 
 ```{r leaflet, echo = FALSE, layout = "l-page"}
 
 # colour palettes
 record_pal <- colorFactor(
-  c("#3C0D03", "#8C1C06", "#E77424","#ED9B49", "#F6C34E"),
+  scico(5, palette = 'lajolla'), 
   reptilia_tidy$basisOfRecord
 )
 
 
 forest_pal <- colorFactor(
-  colorRampPalette(c("#012600", "#B6BFAC"))(11),
+  scico(11, palette = 'romaO'),
   reptilia_tidy$forestType
 )
 
@@ -147,7 +163,37 @@ leaflet(reptilia_tidy) %>%
   addFullscreenControl()
 
 ```
+**Figure2** Locations for occurrence records of reptiles in the ACT. Interactive layers in the top right corner allow records to be differentiated based on the type of record (ALA id: basisOfRecord) and forest type (ALA id: cl10902) associated with each record.  
 
-#### Data  
+
+**Table 1** Occurrence records for reptiles in the ACT. Columns may be sorted by clicking on column names, or filtered using the search bars under each column header. A global search bar in the top right corner enables searching the whole table.  
+```{r table-all }
+
+# remove cols not of interest in a table
+reptilia_subset <- reptilia_tidy %>% 
+  select(eventDate:basisOfRecord, forestType)
+
+reactable(
+  reptilia_subset,
+  columns = list(
+    eventDate = colDef(name = "Date"),
+    scientificName = colDef(name = "Species"),
+    genus = colDef(name = "Genus"),
+    family = colDef(name = "Family"),
+    order = colDef(name = "Order"),
+    dataResourceName = colDef(name = "Source"),
+    basisOfRecord = colDef(name = "Record type"),
+    forestType = colDef(name = "Forest type")
+  ),
+  showSortable = TRUE,
+  filterable = TRUE,
+  searchable = TRUE,
+  showPageInfo = FALSE,
+  striped = TRUE
+)
+```
+
+
+### Citation  
 `r citation_text`
 
