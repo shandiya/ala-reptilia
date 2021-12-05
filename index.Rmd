@@ -4,6 +4,7 @@ subtitle: Occurrences across space and time
 author: "Shandiya Balasubramaniam"
 output: 
   html_document:
+    theme: spacelab  
     code_folding: "hide"
 ---
 
@@ -233,14 +234,15 @@ reactable(
 
 ## {-}
 
+<br><br><br><br>
 
 ## Occurrence records over time {.tabset .tabset-fade .tabset-pills}
 
 ### All records   
 
-Reptile occurrence counts between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT
+Reptile occurrence counts between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT  
 
-```{r all-counts, message = FALSE, fig.fullwidth = TRUE}
+```{r all-counts, message = FALSE, out.width = "100%"}
 
 reptilia_tidy %>%
   filter(!is.na(eventDate)) %>% 
@@ -257,9 +259,9 @@ reptilia_tidy %>%
 
 ### Records by family   
 
-Reptile occurrence counts by taxonomic family between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT 
+Reptile occurrence counts by taxonomic family between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT. `NA` refers to records for which family assignation was not possible.   
 
-```{r facet-counts, message = FALSE, fig.fullwidth = TRUE}
+```{r facet-counts, message = FALSE, out.width = "100%"}
 
 reptilia_tidy %>%
   filter(!is.na(eventDate)) %>% 
@@ -279,7 +281,7 @@ reptilia_tidy %>%
 
 Reptile occurrence counts based on input source (data resource name) between `r year(min(reptilia_tidy$eventDate, na.rm = TRUE))` and `r year(max(reptilia_tidy$eventDate, na.rm = TRUE))` in the ACT 
 
-```{r data-resource, message = FALSE, fig.fullwidth = TRUE}
+```{r data-resource, message = FALSE, out.width = "100%"}
 
 reptilia_tidy %>%
   filter(!is.na(eventDate)) %>% 
@@ -289,19 +291,19 @@ reptilia_tidy %>%
   geom_line(aes(x = `year(eventDate)`, y = count), 
             color = "#41507B") +
   facet_wrap(~source) +
-  labs(x = "Date",
+  labs(x = "",
        y = "") +
   theme_ipsum(
-    strip_text_size = 9, 
+    strip_text_size = 7, 
     axis_text_size = 9)
 
 ```
 
 ### Seasonal differences in counts  
 
-Occurrence counts of individuals by family, across the different months of the year. Although the number of counts varies widely among families, the patterns across months are similar. NOTE: counts have not been transformed to account for differences in the number of species in each family.  
+Occurrence counts of individuals by family, across the different months of the year. The numbers running radially from 1 to 12 represent the months of the year, and the vertical numbers in the top left of each plot show the minimum and maximum counts recorded for each family. Although the number of counts varies widely among families, the patterns across months are similar. NOTE: counts have not been transformed to account for differences in the number of species in each family.  
 
-```{r polar-plots, message = FALSE, fig.fullwidth = TRUE}
+```{r polar-plots, message = FALSE, out.width = "100%"}
 
 # wrangling
 reptilia_polar <- reptilia_tidy %>%
@@ -324,7 +326,7 @@ cp$is_free <- function() TRUE
 # polar plot facetted by family
 ggplot(reptilia_polar) +
   geom_line(aes(x = month, y = occ), 
-            colour = "#41507B", lwd = 1) +
+            colour = "#41507B", lwd = 0.8) +
   scale_x_continuous(breaks = 1:12) + 
   cp + 
   facet_wrap(~family, scales = "free_y") +
@@ -338,7 +340,9 @@ ggplot(reptilia_polar) +
 ## {-}
 
 ### Citation  
-`r citation_text`
+`r citation_text`  
+
+<br><br><br><br>
 
 
 ### Session Info  
