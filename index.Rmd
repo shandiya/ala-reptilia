@@ -97,7 +97,7 @@ skim(reptilia_tidy)
 
 Locations of reptiles in the ACT based on occurrence records of reptiles from the ALA. Interactive layers in the top right corner allow records to be differentiated based on the type of record (ALA id: basisOfRecord), forest type (ALA id: cl10902), and taxonomic family (ALA id: family) associated with each record.
 
-```{r leaflet, echo = FALSE, layout = "l-page"}
+```{r leaflet, echo = FALSE, out.width = "100%"}
 
 # colour palettes
 record_pal <- colorFactor(
